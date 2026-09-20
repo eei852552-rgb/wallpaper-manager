@@ -1,0 +1,42 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+**/service-account*.json
+**/firebase-service-account*.json
+**/*credentials*.json
+**/*private[_-]key*.pem
+
+# Firebase client configuration may contain project/API identifiers; keep out of Git by default
+app/google-services.json
+
+# Dependencies
+node_modules/
+backend/node_modules/
+.pnpm-store/
+
+# Local SDK/tooling (install separately; not project source)
+sdk/
+tools/
+
+# Android/Gradle build outputs
+.gradle/
+app/build/
+build/
+*.apk
+*.aab
+*.apks
+*.idsig
+
+# Backend build outputs
+backend/dist/
+coverage/
+
+# Local IDE/system files
+.idea/
+.vscode/
+*.iml
+.DS_Store

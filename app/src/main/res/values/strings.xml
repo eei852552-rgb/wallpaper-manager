@@ -1,0 +1,1 @@
+<resources><string name="app_name">Wallpaper Manager</string><string name="firebase_api_key">REPLACE_WITH_FIREBASE_API_KEY</string><string name="firebase_app_id">REPLACE_WITH_FIREBASE_APP_ID</string><string name="firebase_project_id">REPLACE_WITH_FIREBASE_PROJECT_ID</string><string name="firebase_storage_bucket">REPLACE_WITH_FIREBASE_STORAGE_BUCKET</string></resources>

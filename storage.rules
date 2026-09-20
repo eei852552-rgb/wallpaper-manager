@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+    function admin() { return signedIn() && userDoc().data.isAdmin == true; }
+    function vip() { return signedIn() && userDoc().data.isVip == true; }
+    function wallpaperDoc(id) {
+      return firestore.get(/databases/(default)/documents/wallpapers/$(id));
+    }
+    function validImageWrite() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 15 * 1024 * 1024;
+    }
+
+    match /wallpapers/{wallpaperId}.jpg {
+      allow read: if signedIn()
+        && (admin() || vip() || wallpaperDoc(wallpaperId).data.isVip != true);
+      allow create, update: if admin() && validImageWrite();
+      allow delete: if admin();
+    }
+  }
+}
