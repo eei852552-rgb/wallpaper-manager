@@ -20,10 +20,8 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Set up Android SDK
+    - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-      with:
-        accept-android-sdk-licenses: true
 
     - name: Create google-services.json
       env:
@@ -35,4 +33,3 @@ jobs:
 
     - name: Build debug APK
       run: ./gradlew assembleDebug
-      
