@@ -28,7 +28,11 @@ class WallpaperRepository {
     suspend fun wallpapers(): List<Wallpaper> = withContext(Dispatchers.IO) {
         val user = profile()
         val base = db.collection("wallpapers").whereEqualTo("isPublished", true)
-        val query = if (user?.isVip == true || user?.isAdmin == true) base else base.whereEqualTo("isVip", false)
+        val query = when {
+            user?.isAdmin == true -> db.collection("wallpapers")
+            user?.isVip == true -> base
+            else -> base.whereEqualTo("isVip", false)
+        }
         query.orderBy("uploadedAt", Query.Direction.DESCENDING).get().await().toObjects(Wallpaper::class.java)
     }
 
@@ -57,12 +61,18 @@ class WallpaperRepository {
         try {
             ImageCompression.compressToJpeg(context.contentResolver, uri, temp)
             val uploaded = imageKit.upload(context, temp, "$id.jpg", "/wallpapers")
-            db.collection("wallpapers").document(id).set(mapOf(
-                "id" to id, "title" to title.trim(), "category" to category,
-                "imageUrl" to uploaded.url, "fileId" to uploaded.fileId,
-                "isVip" to vip, "isFeatured" to featured, "isPublished" to published,
-                "downloadsCount" to 0L, "uploadedAt" to FieldValue.serverTimestamp(),
-            )).await()
+            try {
+                db.collection("wallpapers").document(id).set(mapOf(
+                    "id" to id, "title" to title.trim(), "category" to category,
+                    "imageUrl" to uploaded.url, "fileId" to uploaded.fileId,
+                    "isVip" to vip, "isFeatured" to featured, "isPublished" to published,
+                    "downloadsCount" to 0L, "uploadedAt" to FieldValue.serverTimestamp(),
+                )).await()
+            } catch (firestoreError: Exception) {
+                runCatching { imageKit.delete(uploaded.fileId) }
+                    .onFailure { firestoreError.addSuppressed(it) }
+                throw firestoreError
+            }
         } finally { temp.delete() }
     }
 

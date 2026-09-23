@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -64,10 +65,21 @@ class ImageKitClient(
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("ImageKit download failed: HTTP ${response.code}")
             val body = response.body ?: error("Empty ImageKit response")
+            require(maxBytes in 1..Int.MAX_VALUE) { "Invalid image size limit" }
             require(body.contentLength() <= maxBytes || body.contentLength() == -1L) { "Image exceeds safe size limit" }
-            val bytes = body.bytes()
-            require(bytes.size.toLong() <= maxBytes) { "Image exceeds safe size limit" }
-            bytes
+            val output = ByteArrayOutputStream(maxBytes.toInt())
+            body.byteStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var total = 0L
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    total += read
+                    require(total <= maxBytes) { "Image exceeds safe size limit" }
+                    output.write(buffer, 0, read)
+                }
+            }
+            output.toByteArray()
         }
     }
 }

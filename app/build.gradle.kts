@@ -8,8 +8,8 @@ plugins {
 android { namespace = "com.wallpapermanager.app"; compileSdk = 35
     defaultConfig {
         applicationId = "com.wallpapermanager.app"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0"
-        buildConfigField("String", "IMAGEKIT_AUTH_URL", "\"https://YOUR_BACKEND_HOST/api/imagekit/auth\"")
-        buildConfigField("String", "IMAGEKIT_DELETE_URL", "\"https://YOUR_BACKEND_HOST/api/imagekit/files\"")
+        buildConfigField("String", "IMAGEKIT_AUTH_URL", "\"https://wallpaper-manager.onrender.com/api/imagekit/auth\"")
+        buildConfigField("String", "IMAGEKIT_DELETE_URL", "\"https://wallpaper-manager.onrender.com/api/imagekit/files\"")
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

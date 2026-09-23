@@ -5,30 +5,38 @@ service cloud.firestore {
     function user(uid) { return get(/databases/$(database)/documents/users/$(uid)); }
     function admin() { return signedIn() && user(request.auth.uid).data.isAdmin == true; }
     function vip() { return signedIn() && user(request.auth.uid).data.isVip == true; }
+    function profileShape(data, uid) {
+      return data.keys().hasOnly(['uid', 'email', 'isAdmin', 'isVip', 'createdAt'])
+        && data.uid == uid
+        && data.isAdmin == false
+        && data.isVip == false;
+    }
 
     match /users/{uid} {
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.isAdmin == false
-        && request.resource.data.isVip == false;
+        && profileShape(request.resource.data, uid);
       allow read: if signedIn() && (request.auth.uid == uid || admin());
       allow update: if admin() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email'])
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.isAdmin == resource.data.isAdmin
         && request.resource.data.isVip == resource.data.isVip
-        && request.resource.data.email == resource.data.email);
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'isAdmin', 'isVip', 'createdAt']));
       allow delete: if admin();
 
       match /favorites/{wallpaperId} {
-        allow read, create, delete: if signedIn() && request.auth.uid == uid;
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['wallpaperId', 'createdAt'])
+          && request.resource.data.wallpaperId == wallpaperId;
+        allow delete: if signedIn() && request.auth.uid == uid;
         allow update: if false;
       }
     }
 
     match /wallpapers/{wallpaperId} {
-      // Query clients must include isVip == false unless they are VIP/admin.
-      allow read: if signedIn() && resource.data.isPublished == true
-        && (resource.data.isVip != true || vip() || admin());
+      allow read: if signedIn() && (admin() || (resource.data.isPublished == true
+        && (resource.data.isVip != true || vip())));
       allow create, update, delete: if admin();
     }
   }

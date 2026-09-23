@@ -78,7 +78,39 @@ private enum class Page { Login, Home, Detail, Profile, Admin }
 
 @Composable private fun ProfileScreen(onBack:()->Unit) { val auth=remember{FirebaseAuth.getInstance()}; val scope=rememberCoroutineScope(); var profile by remember{mutableStateOf<UserProfile?>(null)}; LaunchedEffect(Unit){profile=WallpaperRepository().profile()}; Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")};Text("Your profile",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold);Text(auth.currentUser?.email ?: "");Card{Column(Modifier.padding(18.dp)){Text(if(profile?.isVip==true) "VIP member" else "Free member",fontWeight=FontWeight.Bold);Text(if(profile?.isVip==true) "You can access all wallpapers." else "Upgrade to VIP to unlock premium wallpapers.")}};Button(onClick={auth.signOut();onBack()}){Text("Log out")}} }
 
-@Composable private fun AdminScreen(onBack:()->Unit) { val context=LocalContext.current; val repo=remember{WallpaperRepository()};val scope=rememberCoroutineScope();var uri by remember{mutableStateOf<android.net.Uri?>(null)};var title by remember{mutableStateOf("")};var cat by remember{mutableStateOf("Nature")};var vip by remember{mutableStateOf(false)};var featured by remember{mutableStateOf(false)};var published by remember{mutableStateOf(true)};var status by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri=it};Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){TopAppBar(title={Text("Admin dashboard")},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}});Button(onClick={picker.launch("image/*")}){Text(if(uri==null) "Select image" else "Image selected")};OutlinedTextField(title,{title=it},label={Text("Wallpaper title")},modifier=Modifier.fillMaxWidth());Text("Category");Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){categories.take(4).forEach{FilterChip(selected=cat==it,onClick={cat=it},label={Text(it)})}};Row(verticalAlignment=Alignment.CenterVertically){Checkbox(vip,{vip=it});Text("VIP wallpaper")};Row(verticalAlignment=Alignment.CenterVertically){Checkbox(featured,{featured=it});Text("Featured")};Row(verticalAlignment=Alignment.CenterVertically){Checkbox(published,{published=it});Text("Published")};Button(enabled=uri!=null&&!busy,onClick={scope.launch{busy=true;try{repo.upload(context,uri!!,title,cat,vip,featured,published);status="Uploaded successfully"}catch(e:Exception){status=e.message?:"Upload failed"}finally{busy=false}}}){Text(if(busy)"Uploading…" else "Upload wallpaper")};Text(status,color=if(status.contains("failed",true))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)} }
+@Composable private fun AdminScreen(onBack:()->Unit) {
+    val context=LocalContext.current; val repo=remember{WallpaperRepository()}; val scope=rememberCoroutineScope()
+    var uri by remember{mutableStateOf<android.net.Uri?>(null)}; var title by remember{mutableStateOf("")}; var cat by remember{mutableStateOf("Nature")}
+    var vip by remember{mutableStateOf(false)}; var featured by remember{mutableStateOf(false)}; var published by remember{mutableStateOf(true)}
+    var wallpapers by remember{mutableStateOf<List<Wallpaper>>(emptyList())}; var status by remember{mutableStateOf("")}; var busy by remember{mutableStateOf(false)}
+    var confirmDelete by remember{mutableStateOf<Wallpaper?>(null)}; var deleting by remember{mutableStateOf(false)}
+    val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri=it}
+    LaunchedEffect(Unit) { runCatching { repo.wallpapers() }.onSuccess { wallpapers=it }.onFailure { status=it.message ?: "Could not load wallpapers" } }
+    Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        TopAppBar(title={Text("Admin dashboard")},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}})
+        Button(onClick={picker.launch("image/*")}){Text(if(uri==null) "Select image" else "Image selected")}
+        OutlinedTextField(title,{title=it},label={Text("Wallpaper title")},modifier=Modifier.fillMaxWidth())
+        Text("Category")
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){categories.take(4).forEach{FilterChip(selected=cat==it,onClick={cat=it},label={Text(it)})}}
+        Row(verticalAlignment=Alignment.CenterVertically){Checkbox(vip,{vip=it});Text("VIP wallpaper")}
+        Row(verticalAlignment=Alignment.CenterVertically){Checkbox(featured,{featured=it});Text("Featured")}
+        Row(verticalAlignment=Alignment.CenterVertically){Checkbox(published,{published=it});Text("Published")}
+        Button(enabled=uri!=null&&!busy&&!deleting,onClick={scope.launch{busy=true;try{repo.upload(context,uri!!,title,cat,vip,featured,published);wallpapers=repo.wallpapers();status="Uploaded successfully"}catch(e:Exception){status=e.message?:"Upload failed"}finally{busy=false}}}){Text(if(busy)"Uploading…" else "Upload wallpaper")}
+        Text("Existing wallpapers",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+        LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth().weight(1f)) {
+            items(wallpapers,key={it.id}) { wallpaper ->
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)){Text(wallpaper.title,fontWeight=FontWeight.SemiBold);Text(if(wallpaper.isPublished) "Published" else "Unpublished",style=MaterialTheme.typography.labelSmall)}
+                    TextButton(enabled=!deleting,onClick={confirmDelete=wallpaper}){Text("Delete")}
+                }
+            }
+        }
+        Text(status,color=if(status.contains("failed",true)||status.contains("could not",true))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+    }
+    confirmDelete?.let { wallpaper ->
+        AlertDialog(onDismissRequest={if(!deleting)confirmDelete=null},title={Text("Delete wallpaper?")},text={Text("This removes ${wallpaper.title} from Firestore and ImageKit.")},dismissButton={TextButton(enabled=!deleting,onClick={confirmDelete=null}){Text("Cancel")}},confirmButton={TextButton(enabled=!deleting,onClick={scope.launch{deleting=true;try{repo.delete(wallpaper.id);wallpapers=wallpapers.filterNot{it.id==wallpaper.id};status="Deleted successfully"}catch(e:Exception){status=e.message?:"Delete failed"}finally{deleting=false;confirmDelete=null}}}){Text(if(deleting)"Deleting…" else "Delete")}})
+    }
+}
 
 @Composable
 private fun WallpaperImage(w: Wallpaper, modifier: Modifier = Modifier) {
